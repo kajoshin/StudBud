@@ -1,5 +1,6 @@
 from functools import reduce
 
+from Tools.scripts.make_ctype import method
 from django.db.transaction import commit
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
@@ -116,30 +117,42 @@ def userProfile(request, pk):
 @login_required(login_url="/login")
 def create_room(request):
     form = RoomForm()
+    topics = Topic.objects.all()
     if request.method == 'POST':
-        form = RoomForm(request.POST)
-        if form.is_valid():
-            room = form.save(commit=False)
-            room.host = request.user
-            room.save()
-            return redirect('home')
+        topic_name = request.POST.get('topic')
+        topic, created = Topic.objects.get_or_create(name=topic_name)
+        Room.objects.create(
+            host=request.user,
+            topic=topic,
+            name=request.get('name'),
+            description=request.get('description')
+        )
+        # form = RoomForm(request.POST)
+        # if form.is_valid():
+        #     room = form.save(commit=False)
+        #     room.host = request.user
+        #     room.save()
+        #     return redirect('home')
 
-    context = {'form': form}
+    context = {'form': form, 'topics': topics}
     return render(request, "base/room_form.html", context)
 
 @login_required(login_url="/login")
 def update_room(request, pk):
     r = Room.objects.get(id=pk)
     form = RoomForm(instance=r)
-
+    topics = Topic.objects.all()
     if request.user != r.host:
         return HttpResponse("You are not allowed here - not your room.")
     if request.method == 'POST':
-        form = RoomForm(request.post, instance=r)
-        if form.is_valid():
-            form.save()
-            redirect('home')
-    context = {'form': form}
+        topic_name = request.POST.get('topic')
+        topic, created = Topic.objects.get_or_create(name=topic_name)
+        r.name = request.POST.get('name')
+        r.topic = topic
+        r.description = request.POST.get('description')
+        r.save()
+        return redirect('home')
+    context = {'form': form, 'topics': topics, 'room': r}
     return render(request, 'base/room_form.html', context)
 
 @login_required(login_url="/login")
